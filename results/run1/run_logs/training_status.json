@@ -1,0 +1,56 @@
+{
+    "PlaytestAI": {
+        "checkpoints": [
+            {
+                "steps": 354434,
+                "file_path": "results\\run1\\PlaytestAI\\PlaytestAI-354434.onnx",
+                "reward": 172.94666773080826,
+                "creation_time": 1775403375.4859166,
+                "auxillary_file_paths": [
+                    "results\\run1\\PlaytestAI\\PlaytestAI-354434.pt"
+                ]
+            },
+            {
+                "steps": 372539,
+                "file_path": "results\\run1\\PlaytestAI\\PlaytestAI-372539.onnx",
+                "reward": null,
+                "creation_time": 1775727775.1808112,
+                "auxillary_file_paths": [
+                    "results\\run1\\PlaytestAI\\PlaytestAI-372539.pt"
+                ]
+            },
+            {
+                "steps": 380859,
+                "file_path": "results\\run1\\PlaytestAI\\PlaytestAI-380859.onnx",
+                "reward": null,
+                "creation_time": 1775727942.3584938,
+                "auxillary_file_paths": [
+                    "results\\run1\\PlaytestAI\\PlaytestAI-380859.pt"
+                ]
+            },
+            {
+                "steps": 400173,
+                "file_path": "results\\run1\\PlaytestAI\\PlaytestAI-400173.onnx",
+                "reward": 147.16306062042713,
+                "creation_time": 1777017721.7914321,
+                "auxillary_file_paths": [
+                    "results\\run1\\PlaytestAI\\PlaytestAI-400173.pt"
+                ]
+            }
+        ],
+        "final_checkpoint": {
+            "steps": 400173,
+            "file_path": "results\\run1\\PlaytestAI.onnx",
+            "reward": 147.16306062042713,
+            "creation_time": 1777017721.7914321,
+            "auxillary_file_paths": [
+                "results\\run1\\PlaytestAI\\PlaytestAI-400173.pt"
+            ]
+        }
+    },
+    "metadata": {
+        "stats_format_version": "0.3.0",
+        "mlagents_version": "0.30.0",
+        "torch_version": "1.12.1+cpu"
+    }
+}

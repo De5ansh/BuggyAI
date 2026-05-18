@@ -26,6 +26,6 @@ behaviors:
         strength: 0.02   # exploration bonus
         learning_rate: 3.0e-4
 
-    max_steps: 300000
+    max_steps: 600000
     time_horizon: 128
     summary_freq: 10000

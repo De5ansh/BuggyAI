@@ -9,11 +9,14 @@ public class MouseLook : MonoBehaviour
 
     void Start()
     {
-        
+
     }
 
     void Update()
     {
+        if (playerBody == null)
+            return;
+
         float mouseX = Input.GetAxis("Mouse X") * mouseSensitivity * Time.deltaTime;
         float mouseY = Input.GetAxis("Mouse Y") * mouseSensitivity * Time.deltaTime;
 

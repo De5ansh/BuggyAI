@@ -8,7 +8,7 @@ using Unity.MLAgents.Actuators;
 public class PlayerMovement : Agent
 {
     [Header("Movement")]
-    public float spd = 5f;
+    public float spd = 10f;
     public float turnSpeed = 180f;
 
     [Header("Camera Fall")]
@@ -17,13 +17,16 @@ public class PlayerMovement : Agent
     public float camTiltSpeed = 40f;
 
     [Header("Episode")]
-    public float maxEpisodeTime = 60f;
+    public float maxEpisodeTime = 180f;
     public Transform spawnPoint;
 
     [Header("Rewards")]
     public float newCellReward = 1.0f;
-    public float movementReward = 0.01f;
+    public float revisitPenalty = -0.003f;
+    public float movementReward = 0.02f;
     public float stepPenalty = -0.001f;
+    public float turnPenalty = -0.001f;
+    public float turnInPlacePenalty = -0.05f;
     public float stuckPenalty = -2.0f;
     public float pitPenalty = -3.0f;
 
@@ -53,7 +56,8 @@ public class PlayerMovement : Agent
 
     void Start()
     {
-        Debug.Log("Sensors count: " + GetComponents<Unity.MLAgents.Sensors.ISensor>().Length);
+        Debug.Log("Sensors count: " +
+GetComponents<Unity.MLAgents.Sensors.ISensor>().Length);
     }
 
     public override void Initialize()
@@ -63,6 +67,9 @@ public class PlayerMovement : Agent
 
         if (coverageTracker == null)
             coverageTracker = FindObjectOfType<GridCoverageTracker>();
+
+        if (coverageTracker == null)
+            Debug.LogError("PlayerMovement requires a GridCoverageTracker in the scene.");
 
         if (cam != null)
         {
@@ -75,7 +82,25 @@ public class PlayerMovement : Agent
 
     public override void WriteDiscreteActionMask(IDiscreteActionMask actionMask)
     {
-        // Do nothing → disables masking completely
+        // Do nothing -> disables masking completely
+    }
+
+    public void CheckWallProximity()
+    {
+        float rayDistance = 3f;
+
+        // Forward ray
+        if (Physics.Raycast(transform.position, transform.forward, out RaycastHit hit, rayDistance))
+        {
+            if (hit.collider.CompareTag("Wall"))
+            {
+                float dist = hit.distance;
+
+                // closer → bigger penalty
+                float penalty = (rayDistance - dist) / rayDistance;
+                AddReward(-0.01f * penalty);
+            }
+        }
     }
 
     public override void OnEpisodeBegin()
@@ -120,32 +145,49 @@ public class PlayerMovement : Agent
         lastPosition = transform.position;
 
         Debug.Log($"[EPISODE] Reset | Spawn Pos: {transform.position}");
+
+        if (coverageTracker != null)
+            coverageTracker.SaveCoverageToFile();
     }
 
     public override void CollectObservations(VectorSensor sensor)
     {
         Vector3 pos = transform.position;
 
-        float x = Mathf.InverseLerp(coverageTracker.worldMin.x, coverageTracker.worldMax.x, pos.x);
-        float z = Mathf.InverseLerp(coverageTracker.worldMin.z, coverageTracker.worldMax.z, pos.z);
+        if (coverageTracker == null)
+        {
+            sensor.AddObservation(0f);
+            sensor.AddObservation(0f);
+            sensor.AddObservation(isFalling ? 1f : 0f);
+            sensor.AddObservation(0f);
+            sensor.AddObservation(0f);
+            sensor.AddObservation(0f);
+            sensor.AddObservation(1f);
+            return;
+        }
 
-        // Convert to [-1, 1]
+        float x = Mathf.InverseLerp(coverageTracker.worldMin.x,
+coverageTracker.worldMax.x, pos.x);
+        float z = Mathf.InverseLerp(coverageTracker.worldMin.z,
+coverageTracker.worldMax.z, pos.z);
+
         x = x * 2f - 1f;
         z = z * 2f - 1f;
 
         float falling = isFalling ? 1f : 0f;
+        Vector3 forward = transform.forward;
 
-        Vector2 norm = coverageTracker != null
-            ? coverageTracker.GetNormalizedPosition(pos)
-            : Vector2.zero;
+        Vector2 norm = coverageTracker.GetNormalizedPosition(pos);
 
         sensor.AddObservation(x);
         sensor.AddObservation(z);
         sensor.AddObservation(falling);
         sensor.AddObservation(norm.x);
         sensor.AddObservation(norm.y);
+        sensor.AddObservation(forward.x);
+        sensor.AddObservation(forward.z);
 
-        Debug.Log($"OBS: {x}, {z}, {falling}, {norm.x}, {norm.y}");
+        Debug.Log($"OBS: {x}, {z}, {falling}, {norm.x}, {norm.y},{forward.x}, {forward.z}");
     }
 
     public override void OnActionReceived(ActionBuffers actions)
@@ -155,14 +197,14 @@ public class PlayerMovement : Agent
         float move = actions.ContinuousActions[0];
         float turn = actions.ContinuousActions[1];
 
-        // 🔥 Store intent (IMPORTANT for stuck detection)
+        if (Mathf.Abs(turn) < 0.1f)
+            turn = 0f;
+
         currentMoveIntent = move;
         currentTurnIntent = turn;
 
-        // 🔥 Rotate
         transform.Rotate(Vector3.up * turn * turnSpeed * Time.deltaTime);
 
-        // 🔥 Move forward/back
         Vector3 movement = transform.forward * move;
         movement.y = 0f;
 
@@ -172,51 +214,59 @@ public class PlayerMovement : Agent
 
         float dist = Vector3.Distance(before, after);
 
-        // 🔥 Small step penalty (encourages efficiency)
         AddReward(stepPenalty);
+        AddReward(Mathf.Abs(turn) * turnPenalty);
 
-        // 🔥 Reward actual movement (not just input spam)
         if (Mathf.Abs(move) > 0.1f && dist > stuckDistanceThreshold)
         {
             AddReward(movementReward);
         }
         else if (Mathf.Abs(move) > 0.1f && dist < stuckDistanceThreshold)
         {
-            // Trying to move but not moving → bad
             AddReward(-0.01f);
         }
 
-        // 🔥 Penalize spinning in place (prevents useless turning)
-        if (Mathf.Abs(turn) > 0.5f && dist < 0.01f)
+        if (Mathf.Abs(turn) > 0.3f && Mathf.Abs(move) < 0.1f)
+        {
+            AddReward(turnInPlacePenalty);
+        }
+        else if (Mathf.Abs(turn) > 0.5f && dist < 0.01f)
         {
             AddReward(-0.005f);
         }
 
-        // 🔥 Coverage reward (MAIN objective)
         if (coverageTracker != null)
         {
             Vector2Int cell = coverageTracker.WorldToCell(transform.position);
-            bool isNew = coverageTracker.RegisterAgentPosition(transform.position);
+            bool isNew =
+coverageTracker.RegisterAgentPosition(transform.position);
 
             if (isNew)
             {
                 AddReward(newCellReward);
                 Debug.Log($"[COVERAGE] New Cell: {cell}");
             }
+            else
+            {
+                AddReward(revisitPenalty);
+            }
         }
 
-        // 🔥 Stuck detection
         DetectStuck(dist);
-
-        // 🔥 Update last position
         lastPosition = transform.position;
+        CheckWallProximity();
     }
-
 
     private void Update()
     {
         if (isFalling)
         {
+            if (cam == null)
+            {
+                EndEpisode();
+                return;
+            }
+
             camFallSpeed += camFallAcceleration * Time.deltaTime;
             cam.position += Vector3.down * camFallSpeed * Time.deltaTime;
             cam.Rotate(Vector3.forward * camTiltSpeed * Time.deltaTime);
@@ -237,7 +287,8 @@ public class PlayerMovement : Agent
 
     private void DetectStuck(float dist)
     {
-        if (Mathf.Abs(currentMoveIntent) > 0.01f && dist < stuckDistanceThreshold)
+        if (Mathf.Abs(currentMoveIntent) > 0.01f && dist <
+stuckDistanceThreshold)
         {
             stuckTimer += Time.deltaTime;
         }
@@ -249,7 +300,8 @@ public class PlayerMovement : Agent
         if (stuckTimer >= stuckTimeThreshold)
         {
             Debug.Log($"[BUG] StuckSpot | Pos: {transform.position}");
-            coverageTracker.RegisterBug(transform.position, "StuckSpot");
+            if (coverageTracker != null)
+                coverageTracker.RegisterBug(transform.position, "StuckSpot");
             AddReward(stuckPenalty);
             EndEpisode();
         }
@@ -262,7 +314,8 @@ public class PlayerMovement : Agent
         if (other.CompareTag("Pit"))
         {
             Debug.Log($"[BUG] Pit Trigger | Pos: {transform.position}");
-            coverageTracker.RegisterBug(transform.position, "PitTrap");
+            if (coverageTracker != null)
+                coverageTracker.RegisterBug(transform.position, "PitTrap");
             AddReward(pitPenalty);
 
             isFalling = true;
@@ -270,14 +323,14 @@ public class PlayerMovement : Agent
         }
     }
 
-public override void Heuristic(in ActionBuffers actionsOut)
-{
-    var c = actionsOut.ContinuousActions;
+    public override void Heuristic(in ActionBuffers actionsOut)
+    {
+        var c = actionsOut.ContinuousActions;
 
-    c[0] = Input.GetKey(KeyCode.W) ? 1f :
-           Input.GetKey(KeyCode.S) ? -1f : 0f;
+        c[0] = Input.GetKey(KeyCode.W) ? 1f :
+               Input.GetKey(KeyCode.S) ? -1f : 0f;
 
-    c[1] = Input.GetKey(KeyCode.D) ? 1f :
-           Input.GetKey(KeyCode.A) ? -1f : 0f;
-}
+        c[1] = Input.GetKey(KeyCode.D) ? 1f :
+               Input.GetKey(KeyCode.A) ? -1f : 0f;
+    }
 }

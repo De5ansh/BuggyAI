@@ -1,14 +1,17 @@
 using System.Collections.Generic;
+using System.IO;
 using UnityEngine;
 
 public class GridCoverageTracker : MonoBehaviour
 {
     public Vector3 worldMin = new Vector3(-100f, 0f, -100f);
     public Vector3 worldMax = new Vector3(100f, 0f, 100f);
-    public float cellSize = 2f;
+    public float cellSize = 4f;
 
     private HashSet<Vector2Int> episodeVisited = new HashSet<Vector2Int>();
     private HashSet<Vector2Int> globalVisited = new HashSet<Vector2Int>();
+
+    private List<Vector2Int> bugCells = new List<Vector2Int>();
 
     private List<string> bugLogs = new List<string>();
 
@@ -40,9 +43,10 @@ public class GridCoverageTracker : MonoBehaviour
 
     public void RegisterBug(Vector3 pos, string type)
     {
-        bugLogs.Add(type);
+        Vector2Int cell = WorldToCell(pos);
+        bugCells.Add(cell);
 
-        Debug.Log($"[TRACKER] BUG Registered | Type: {type} | Pos: {pos} | Total Bugs: {bugLogs.Count}");
+        Debug.Log($"[TRACKER] BUG Registered | Type: {type} | Cell: {cell}");
     }
 
     public Vector2Int WorldToCell(Vector3 pos)
@@ -64,6 +68,34 @@ public class GridCoverageTracker : MonoBehaviour
         return pos.x >= worldMin.x && pos.x <= worldMax.x &&
                pos.z >= worldMin.z && pos.z <= worldMax.z;
     }
+
+
+
+    public void SaveCoverageToFile()
+    {
+        string path = Application.dataPath + "/../coverage.txt";
+
+        using (StreamWriter writer = new StreamWriter(path))
+        {
+            foreach (var cell in globalVisited)
+            {
+                writer.WriteLine($"{cell.x},{cell.y},visited");
+            }
+
+            foreach (var bug in bugCells)
+            {
+                writer.WriteLine($"{bug.x},{bug.y},bug");
+            }
+        }
+
+        Debug.Log("Coverage + Bugs saved!");
+    }
+
+    public bool IsCellVisited(Vector2Int cell)
+    {
+        return globalVisited.Contains(cell);
+    }
+
 
     public int GetGlobalVisitedCount() => globalVisited.Count;
 }

@@ -1,0 +1,42 @@
+{
+    "name": "root",
+    "metadata": {
+        "timer_format_version": "0.1.0",
+        "start_time_seconds": "1777017443",
+        "python_version": "3.10.0 (tags/v3.10.0:b494f59, Oct  4 2021, 19:00:18) [MSC v.1929 64 bit (AMD64)]",
+        "command_line_arguments": "D:\\Unity Projects\\BuggyAI\\mlagents_env\\Scripts\\mlagents-learn config/ppo_playtest.yaml --run-id=run7",
+        "mlagents_version": "0.30.0",
+        "mlagents_envs_version": "0.30.0",
+        "communication_protocol_version": "1.5.0",
+        "pytorch_version": "1.12.1+cpu",
+        "numpy_version": "1.23.5",
+        "end_time_seconds": "1777017505"
+    },
+    "total": 61.792270999998436,
+    "count": 1,
+    "self": 0.011897000003955327,
+    "children": {
+        "run_training.setup": {
+            "total": 0.14446079999470385,
+            "count": 1,
+            "self": 0.14446079999470385
+        },
+        "TrainerController.start_learning": {
+            "total": 61.63591319999978,
+            "count": 1,
+            "self": 0.00017590000061318278,
+            "children": {
+                "TrainerController._reset_env": {
+                    "total": 61.635710700000345,
+                    "count": 1,
+                    "self": 61.635710700000345
+                },
+                "TrainerController._save_models": {
+                    "total": 2.6599998818710446e-05,
+                    "count": 1,
+                    "self": 2.6599998818710446e-05
+                }
+            }
+        }
+    }
+}
